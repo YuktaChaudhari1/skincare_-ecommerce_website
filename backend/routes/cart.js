@@ -3,7 +3,6 @@ const router = express.Router();
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const { authenticateToken } = require('../middleware/auth');
-// const supabase = require('../supabaseClient');
 
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',

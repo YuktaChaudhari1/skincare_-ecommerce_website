@@ -15,7 +15,7 @@ const Signup = () => {
         setError(null);
 
         try {
-            const response = await fetch('http://localhost:5000/auth/register', {
+            const response = await fetch('https://skincare-ecommerce-website-z84e.onrender.com/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(credentials)

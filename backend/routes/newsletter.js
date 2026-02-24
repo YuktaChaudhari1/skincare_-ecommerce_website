@@ -7,24 +7,9 @@ router.post('/', async (req, res) => {
 
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
-    // Check if already subscribed
-    const { data: existing } = await supabase
-        .from('newsletter_subscribers')
-        .select('*')
-        .eq('email', email)
-        .single();
+    // TODO: Implement newsletter subscription using MongoDB (Mongoose)
 
-    if (existing) {
-        return res.json({ success: true, message: 'Already subscribed' });
-    }
-
-    const { error } = await supabase
-        .from('newsletter_subscribers')
-        .insert([{ email }]);
-
-    if (error) return res.status(500).json({ error: error.message });
-
-    res.json({ success: true, message: 'Subscribed successfully' });
+    res.json({ success: true, message: 'Subscribed successfully (Mocked)' });
 });
 
 module.exports = router;

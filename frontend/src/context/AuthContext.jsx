@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
         const fetchUser = async () => {
             if (token) {
                 try {
-                    const response = await fetch('http://localhost:5000/auth/me', {
+                    const response = await fetch('https://skincare-ecommerce-website-z84e.onrender.com/auth/me', {
                         headers: {
                             Authorization: `Bearer ${token}`
                         }
