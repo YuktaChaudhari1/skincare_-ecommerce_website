@@ -12,74 +12,125 @@ const Home = () => {
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
 
-        // Canvas dimensions
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        // Debounce resize to prevent breaking mobile on URL bar show/hide
+        let resizeTimer;
 
-        const frameCount = 163; // based on 00030 to 00192 (163 frames)
+        // Setup initial canvas dimensions properly with devicePixelRatio for sharpness
+        const setCanvasSize = () => {
+            const dpr = window.devicePixelRatio || 1;
+            // using window.innerWidth and innerHeight for accurate mobile dimensions
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+
+            // scale the context to match DPR
+            context.scale(dpr, dpr);
+
+            // set CSS size
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
+            return { width, height };
+        };
+
+        let dims = setCanvasSize();
+
+        const frameCount = 163;
         const currentFrame = index => `/serum_video/${(index + 30).toString().padStart(5, '0')}.png`;
 
         const images = [];
-        const serum = {
-            frame: 0
-        };
+        const serum = { frame: 0 };
 
-        for (let i = 0; i < frameCount; i++) {
-            const img = new Image();
-            img.src = currentFrame(i);
-            images.push(img);
-        }
+        let loadedImages = 0;
+        let animationTrigger = null;
 
         const render = () => {
-            context.clearRect(0, 0, canvas.width, canvas.height);
-            // Draw image covering center
+            if (!images[serum.frame] || !images[serum.frame].complete) return;
+
+            context.clearRect(0, 0, dims.width, dims.height);
             const img = images[serum.frame];
-            if (img && img.complete) {
-                const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
-                const x = (canvas.width / 2) - (img.width / 2) * scale;
 
-                // Calculate vertically centered Y, then push it down by 80px to clear the Navbar
-                const y = (canvas.height / 2) - (img.height / 2) * scale + 80;
+            // Scale correctly for responsive viewports
+            const scale = Math.max(dims.width / img.width, dims.height / img.height);
 
-                context.drawImage(img, x, y, img.width * scale, img.height * scale);
+            // Calculate center
+            const x = (dims.width / 2) - (img.width / 2) * scale;
+            const y = (dims.height / 2) - (img.height / 2) * scale + (window.innerWidth < 768 ? 40 : 80);
+
+            context.drawImage(img, x, y, img.width * scale, img.height * scale);
+        };
+
+        // Advanced progressive image loading
+        // Load first frame instantly
+        const img0 = new Image();
+        img0.src = currentFrame(0);
+        images.push(img0);
+
+        img0.onload = () => {
+            loadedImages++;
+            render(); // draw frame 0 immediately
+
+            // Start loading the rest sequentially so browser doesn't block
+            for (let i = 1; i < frameCount; i++) {
+                const img = new Image();
+                img.src = currentFrame(i);
+                img.onload = () => {
+                    loadedImages++;
+                    // If we have loaded enough initial images, start the GSAP animation
+                    if (loadedImages === 10 && !animationTrigger) {
+                        initGSAP();
+                    }
+                };
+                images.push(img);
             }
         };
 
-        images[0].onload = render;
-
-        gsap.to(serum, {
-            frame: frameCount - 1,
-            snap: "frame",
-            ease: "none",
-            scrollTrigger: {
-                trigger: "#hero-section",
-                start: "top top",
-                end: "+=3000",
-                scrub: 1,
-                pin: true,
-            },
-            onUpdate: render
-        });
+        const initGSAP = () => {
+            animationTrigger = gsap.to(serum, {
+                frame: frameCount - 1,
+                snap: "frame",
+                ease: "none",
+                scrollTrigger: {
+                    trigger: "#hero-section",
+                    start: "top top",
+                    end: "+=3000",
+                    scrub: 1, // Smooth scrub vs instant
+                    pin: true,
+                    // Use fastScrollEnd on mobile to prevent staggering
+                    fastScrollEnd: window.innerWidth < 768,
+                },
+                onUpdate: () => requestAnimationFrame(render) // RequestAnimationFrame optimizes rendering
+            });
+        };
 
         const handleResize = () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            render();
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                // Only resize if width actually changed (prevents mobile bug)
+                if (dims.width !== window.innerWidth) {
+                    dims = setCanvasSize();
+                    render();
+                    ScrollTrigger.refresh();
+                }
+            }, 250);
         };
 
         window.addEventListener('resize', handleResize);
 
         return () => {
             window.removeEventListener('resize', handleResize);
+            clearTimeout(resizeTimer);
             ScrollTrigger.getAll().forEach(t => t.kill());
+            if (animationTrigger) animationTrigger.kill();
         };
     }, []);
 
     return (
-        <div className="bg-blush min-h-screen">
+        <div className="bg-blush min-h-[100dvh]">
             {/* Hero Section with Canvas */}
-            <section id="hero-section" className="relative h-screen w-full overflow-hidden flex items-center justify-center">
-                <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover z-0"></canvas>
+            <section id="hero-section" className="relative h-[100dvh] w-full overflow-hidden flex items-center justify-center">
+                <canvas ref={canvasRef} style={{ willChange: 'transform' }} className="absolute inset-0 z-0"></canvas>
 
                 <div className="z-10 text-center text-white mix-blend-difference pointer-events-none">
                     <motion.h1
